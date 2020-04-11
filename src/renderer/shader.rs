@@ -1,4 +1,4 @@
-use shaderc::{Compiler, CompileOptions, ShaderKind};
+use shaderc::{Compiler, CompileOptions, ShaderKind, CompilationArtifact};
 use wgpu::{ShaderModule, Device};
 
 pub struct Shader {
@@ -8,13 +8,12 @@ pub struct Shader {
 }
 
 impl Shader {
-    fn build_shader(&self, shader_kind: ShaderKind) -> crate::Result<Vec<u8>> {
+    fn build_shader(&self, shader_kind: ShaderKind) -> crate::Result<CompilationArtifact> {
         let mut compiler = Compiler::new().unwrap();
         let options = CompileOptions::new().unwrap();
-
         let artifact = compiler.compile_into_spirv_assembly(&self.source_code, shader_kind, &self.shader_file_name, &self.entry_point, Some(&options))?;
 
-        Ok(artifact.as_binary_u8().to_vec())
+        Ok(artifact)
     }
 
     pub fn new(source_code: String, entry_point: String, shader_file_name: String) -> Self {
@@ -28,7 +27,7 @@ impl Shader {
     pub fn build_module(&self, device: &Device, shader_kind: ShaderKind) -> crate::Result<ShaderModule> {
         let spirv_byte_array = self.build_shader(shader_kind)?;
 
-        Ok(device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&spirv_byte_array[..]))?))
+        Ok(device.create_shader_module(&spirv_byte_array.as_binary()))
     }
 
     pub fn create_from_file(device: &Device, path: String, shader_kind: ShaderKind) -> ShaderModule {
