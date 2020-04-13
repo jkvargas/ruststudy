@@ -1,13 +1,13 @@
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::Window
+    window::Window,
 };
 
-use wgpu::{Adapter, RequestAdapterOptions, PowerPreference, Surface, BackendBit, DeviceDescriptor, Extensions, Limits, read_spirv, BindGroupLayoutDescriptor, PipelineLayout, PipelineLayoutDescriptor, RenderPipelineDescriptor, ProgrammableStageDescriptor, RasterizationStateDescriptor, FrontFace, CullMode, PrimitiveTopology, ColorStateDescriptor, TextureFormat, BlendDescriptor, ColorWrite, VertexStateDescriptor, IndexFormat, SwapChainDescriptor, TextureUsage, PresentMode};
 use futures::executor::block_on;
-use shaderc::ShaderKind;
-use rustgraphics::renderer::shader::Shader;
+use nalgebra::{Vector3, Vector4};
+use wgpu::{read_spirv, PipelineLayout, PowerPreference, PresentMode, PrimitiveTopology, ProgrammableStageDescriptor, RasterizationStateDescriptor, RenderPipelineDescriptor, RequestAdapterOptions, Surface, SwapChainDescriptor, VertexStateDescriptor, VertexBufferDescriptor, BindGroupDescriptor};
+use rustgraphics::renderer::vertex::Vertex;
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
@@ -20,37 +20,76 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         },
         wgpu::BackendBit::PRIMARY,
     )
-        .await
-        .unwrap();
+    .await
+    .unwrap();
 
-    let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-        extensions: wgpu::Extensions {
-            anisotropic_filtering: false,
-        },
-        limits: wgpu::Limits::default(),
-    })
+    let vertex_list = vec![
+        Vertex::new(
+            Vector4::new(0.0, -0.5, 0.0, 1.0),
+            Vector3::new(1.0, 0.0, 0.0),
+        ),
+        Vertex::new(
+            Vector4::new(0.5, 0.5, 0.0, 1.0),
+            Vector3::new(0.0, 1.0, 0.0),
+        ),
+        Vertex::new(
+            Vector4::new(-0.5, 0.5, 0.0, 1.0),
+            Vector3::new(0.0, 0.0, 1.0),
+        ),
+    ];
+
+    let (device, queue) = adapter
+        .request_device(&wgpu::DeviceDescriptor {
+            extensions: wgpu::Extensions {
+                anisotropic_filtering: false,
+            },
+            limits: wgpu::Limits::default(),
+        })
         .await;
 
-    // let vs = include_bytes!("shader.vert.spv");
-    // let vs_module =
-    //     device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
+    let vs = include_bytes!("vert.glsl.spv");
+    let vs_module =
+        device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
 
-    let vs_module = Shader::create_from_file(&device, "/Users/jhonnyvargas/dev/rustgraphics/src/vert.glsl".to_string(), ShaderKind::Geometry);
-    let fs_module = Shader::create_from_file(&device, "/Users/jhonnyvargas/dev/rustgraphics/src/frag.glsl".to_string(), ShaderKind::Fragment);
+    // let vs_module = Shader::create_from_file(&device, "/Users/jhonnyvargas/dev/rustgraphics/src/vert.glsl".to_string(), ShaderKind::Geometry);
+    // let fs_module = Shader::create_from_file(&device, "/Users/jhonnyvargas/dev/rustgraphics/src/frag.glsl".to_string(), ShaderKind::Fragment);
 
-    // let fs = include_bytes!("shader.frag.spv");
-    // let fs_module =
-    //     device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
+    let fs = include_bytes!("frag.glsl.spv");
+    let fs_module =
+        device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
 
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        bindings: &[],
-        label: None,
-    });
+    let bind_group_layout = device.create_bind_group_layout(&Vertex::get_layout_descriptor());
+
+
+    let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+    let mx_ref: &[f32; 16] = mx_total.as_ref();
+    let uniform_buf = device.create_buffer_with_data(
+        mx_ref.as_bytes(),
+        wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    );
+
+    // Create bind group
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &bind_group_layout,
-        bindings: &[],
+        bindings: &[
+            wgpu::Binding {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &uniform_buf,
+                    range: 0..64,
+                },
+            },
+            wgpu::Binding {
+                binding: 1,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &uniform_buf,
+                    range: 0..64,
+                },
+            },
+        ],
         label: None,
     });
+
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         bind_group_layouts: &[&bind_group_layout],
     });
@@ -80,10 +119,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             write_mask: wgpu::ColorWrite::ALL,
         }],
         depth_stencil_state: None,
-        vertex_state: wgpu::VertexStateDescriptor {
-            index_format: wgpu::IndexFormat::Uint16,
-            vertex_buffers: &[],
-        },
+        vertex_state: Vertex::get_state_descriptor(),
         sample_count: 1,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
@@ -103,7 +139,10 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         *control_flow = ControlFlow::Poll;
         match event {
             Event::MainEventsCleared => window.request_redraw(),
-            Event::WindowEvent { event: WindowEvent::Resized(size), .. } => {
+            Event::WindowEvent {
+                event: WindowEvent::Resized(size),
+                ..
+            } => {
                 sc_desc.width = size.width;
                 sc_desc.height = size.height;
                 swap_chain = device.create_swap_chain(&surface, &sc_desc);
@@ -112,9 +151,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 let frame = swap_chain
                     .get_next_texture()
                     .expect("Timeout when acquiring next swap chain texture");
-                let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: None,
-                });
+                let mut encoder =
+                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
                 {
                     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -128,7 +166,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     });
                     rpass.set_pipeline(&render_pipeline);
                     rpass.set_bind_group(0, &bind_group, &[]);
-                    rpass.draw(0 .. 3, 0 .. 1);
+                    rpass.draw(0..3, 0..1);
                 }
 
                 queue.submit(&[encoder.finish()]);
@@ -141,6 +179,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         }
     });
 }
+
 
 
 fn main() {
