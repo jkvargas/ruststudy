@@ -61,6 +61,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let bind_group_layout = device.create_bind_group_layout(&Vertex::get_layout_descriptor());
 
 
+
     let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
     let mx_ref: &[f32; 16] = mx_total.as_ref();
     let uniform_buf = device.create_buffer_with_data(
@@ -77,15 +78,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                 resource: wgpu::BindingResource::Buffer {
                     buffer: &uniform_buf,
                     range: 0..64,
-                },
-            },
-            wgpu::Binding {
-                binding: 1,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &uniform_buf,
-                    range: 0..64,
-                },
-            },
+                }
+            }
         ],
         label: None,
     });

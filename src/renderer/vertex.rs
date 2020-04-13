@@ -32,12 +32,7 @@ impl Vertex {
                     binding: 0,
                     visibility: ShaderStage::VERTEX,
                     ty: BindingType::UniformBuffer { dynamic: false },
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStage::FRAGMENT,
-                    ty: BindingType::UniformBuffer { dynamic: false },
-                },
+                }
             ],
         }
     }
