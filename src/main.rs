@@ -13,12 +13,16 @@ use zerocopy::AsBytes;
 pub fn create_triangle() -> (Vec<Vertex>, Vec<u16>){
     let vertex_list = [
         Vertex::new(
-            [0.0, -0.5, 0.0, 1.0],
+            [-0.5, -0.5, 0.0, 1.0],
             [1.0, 0.0, 0.0],
         ),
         Vertex::new(
-            [0.5, 0.5, 0.0, 1.0],
+            [0.5, -0.5, 0.0, 1.0],
             [0.0, 1.0, 0.0],
+        ),
+        Vertex::new(
+            [0.5, 0.5, 0.0, 1.0],
+            [0.0, 0.0, 1.0],
         ),
         Vertex::new(
             [-0.5, 0.5, 0.0, 1.0],
@@ -26,7 +30,7 @@ pub fn create_triangle() -> (Vec<Vertex>, Vec<u16>){
         ),
     ];
 
-    let indices: &[u16] = &[0, 1, 2];
+    let indices: &[u16] = &[0, 1, 2, 2, 3, 0];
 
     (vertex_list.to_vec(), indices.to_vec())
 }
@@ -73,6 +77,23 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         bind_group_layouts: &[&bind_group_layout],
+    });
+
+    let uniform_buf = device.create_buffer_with_data(
+        vertex_data.as_bytes(),
+        wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+    );
+
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &bind_group_layout,
+        bindings: &[wgpu::Binding {
+            binding: 0,
+            resource: wgpu::BindingResource::Buffer {
+                buffer: &uniform_buf,
+                range: 0..64
+            }
+        }],
+        label: None,
     });
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -147,7 +168,9 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     });
                     rpass.set_pipeline(&render_pipeline);
                     rpass.set_bind_group(0, &bind_group, &[]);
-                    rpass.draw(0..3, 0..1);
+                    rpass.set_index_buffer(&index_buf, 0, 0);
+                    rpass.set_vertex_buffer(0, &vertex_buf, 0, 0);
+                    rpass.draw(0..index_data.len() as u32, 0..1);
                 }
 
                 queue.submit(&[encoder.finish()]);
