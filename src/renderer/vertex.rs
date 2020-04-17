@@ -1,4 +1,5 @@
 use nalgebra::{Vector3, Vector4};
+use zerocopy::{FromBytes, AsBytes};
 use wgpu::{BindGroupLayoutDescriptor,
            BindGroupLayoutEntry,
            BindingType,
@@ -10,14 +11,15 @@ use wgpu::{BindGroupLayoutDescriptor,
            VertexStateDescriptor,
            InputStepMode};
 
+#[derive(Clone, Copy, FromBytes, AsBytes)]
 #[repr(C)]
 pub struct Vertex {
-    position: Vector4<f32>,
-    color: Vector3<f32>,
+    position: [f32; 4],
+    color: [f32; 3]
 }
 
 impl Vertex {
-    pub fn new(pos: Vector4<f32>, col: Vector3<f32>) -> Self {
+    pub fn new(pos: [f32; 4], col: [f32; 3]) -> Self {
         Self {
             position: pos,
             color: col,

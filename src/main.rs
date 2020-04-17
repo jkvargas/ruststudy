@@ -6,8 +6,30 @@ use winit::{
 
 use futures::executor::block_on;
 use nalgebra::{Vector3, Vector4};
-use wgpu::{read_spirv, PipelineLayout, PowerPreference, PresentMode, PrimitiveTopology, ProgrammableStageDescriptor, RasterizationStateDescriptor, RenderPipelineDescriptor, RequestAdapterOptions, Surface, SwapChainDescriptor, VertexStateDescriptor, VertexBufferDescriptor, BindGroupDescriptor};
+use wgpu::{read_spirv, PipelineLayout, PowerPreference, PresentMode, PrimitiveTopology, ProgrammableStageDescriptor, RasterizationStateDescriptor, RenderPipelineDescriptor, RequestAdapterOptions, Surface, SwapChainDescriptor, VertexStateDescriptor, VertexBufferDescriptor, BindGroupDescriptor, BufferUsage};
 use rustgraphics::renderer::vertex::Vertex;
+use zerocopy::AsBytes;
+
+pub fn create_triangle() -> (Vec<Vertex>, Vec<u16>){
+    let vertex_list = [
+        Vertex::new(
+            [0.0, -0.5, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+        ),
+        Vertex::new(
+            [0.5, 0.5, 0.0, 1.0],
+            [0.0, 1.0, 0.0],
+        ),
+        Vertex::new(
+            [-0.5, 0.5, 0.0, 1.0],
+            [0.0, 0.0, 1.0],
+        ),
+    ];
+
+    let indices: &[u16] = &[0, 1, 2];
+
+    (vertex_list.to_vec(), indices.to_vec())
+}
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
@@ -23,21 +45,6 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     .await
     .unwrap();
 
-    let vertex_list = vec![
-        Vertex::new(
-            Vector4::new(0.0, -0.5, 0.0, 1.0),
-            Vector3::new(1.0, 0.0, 0.0),
-        ),
-        Vertex::new(
-            Vector4::new(0.5, 0.5, 0.0, 1.0),
-            Vector3::new(0.0, 1.0, 0.0),
-        ),
-        Vertex::new(
-            Vector4::new(-0.5, 0.5, 0.0, 1.0),
-            Vector3::new(0.0, 0.0, 1.0),
-        ),
-    ];
-
     let (device, queue) = adapter
         .request_device(&wgpu::DeviceDescriptor {
             extensions: wgpu::Extensions {
@@ -51,38 +58,18 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let vs_module =
         device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
 
-    // let vs_module = Shader::create_from_file(&device, "/Users/jhonnyvargas/dev/rustgraphics/src/vert.glsl".to_string(), ShaderKind::Geometry);
-    // let fs_module = Shader::create_from_file(&device, "/Users/jhonnyvargas/dev/rustgraphics/src/frag.glsl".to_string(), ShaderKind::Fragment);
-
     let fs = include_bytes!("frag.glsl.spv");
     let fs_module =
         device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
 
     let bind_group_layout = device.create_bind_group_layout(&Vertex::get_layout_descriptor());
 
+    let (vertex_data, index_data) = create_triangle();
+    let vertex_buf =
+        device.create_buffer_with_data(vertex_data.as_bytes(), wgpu::BufferUsage::VERTEX);
 
-
-    let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
-    let mx_ref: &[f32; 16] = mx_total.as_ref();
-    let uniform_buf = device.create_buffer_with_data(
-        mx_ref.as_bytes(),
-        wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    );
-
-    // Create bind group
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &bind_group_layout,
-        bindings: &[
-            wgpu::Binding {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &uniform_buf,
-                    range: 0..64,
-                }
-            }
-        ],
-        label: None,
-    });
+    let index_buf =
+        device.create_buffer_with_data(index_data.as_bytes(), wgpu::BufferUsage::INDEX);
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         bind_group_layouts: &[&bind_group_layout],
