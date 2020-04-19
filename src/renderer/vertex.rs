@@ -11,18 +11,23 @@ use wgpu::{BindGroupLayoutDescriptor,
            VertexStateDescriptor,
            InputStepMode};
 
+pub struct Vertex {
+    position: Vector4<f32>,
+    color: Vector3<f32>
+}
+
 #[derive(Clone, Copy, FromBytes, AsBytes)]
 #[repr(C)]
-pub struct Vertex {
+pub struct IntVertex {
     position: [f32; 4],
     color: [f32; 3]
 }
 
-impl Vertex {
-    pub fn new(pos: [f32; 4], col: [f32; 3]) -> Self {
+impl IntVertex {
+    pub fn new(vert: &Vertex) -> Self {
         Self {
-            position: pos,
-            color: col,
+            position: *(&vert.position).as_ref(),
+            color: *(&vert.color).as_ref()
         }
     }
 
@@ -43,7 +48,7 @@ impl Vertex {
         VertexStateDescriptor {
             index_format: IndexFormat::Uint16,
             vertex_buffers: &[VertexBufferDescriptor {
-                stride: std::mem::size_of::<Vertex>() as u64,
+                stride: std::mem::size_of::<IntVertex>() as u64,
                 step_mode: InputStepMode::Vertex,
                 attributes: &[
                     VertexAttributeDescriptor {
@@ -59,5 +64,18 @@ impl Vertex {
                 ],
             }],
         }
+    }
+}
+
+impl Vertex {
+    pub fn new(pos: Vector4<f32>, col: Vector3<f32>) -> Self {
+        Self {
+            position: pos,
+            color: col,
+        }
+    }
+
+    pub fn as_intvertex(&self) -> IntVertex {
+        IntVertex::new(self)
     }
 }
