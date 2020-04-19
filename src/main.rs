@@ -170,7 +170,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                     rpass.set_bind_group(0, &bind_group, &[]);
                     rpass.set_index_buffer(&index_buf, 0, 0);
                     rpass.set_vertex_buffer(0, &vertex_buf, 0, 0);
-                    rpass.draw(0..index_data.len() as u32, 0..1);
+                    rpass.draw_indexed(0..index_data.len() as u32, 0, 0..1);
                 }
 
                 queue.submit(&[encoder.finish()]);
@@ -183,8 +183,6 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         }
     });
 }
-
-
 
 fn main() {
     let event_loop = EventLoop::new();
