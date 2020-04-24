@@ -63,21 +63,19 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     ];
 
     let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
-    let vertex_bytes = bincode::serialize(&vertex_data).unwrap();
-    let index_bytes = bincode::serialize(&index_data).unwrap();
 
     let vertex_buf =
-        device.create_buffer_with_data(vertex_bytes.as_ref(), wgpu::BufferUsage::VERTEX);
+        device.create_buffer_with_data(bytemuck::cast_slice(&vertex_data), wgpu::BufferUsage::VERTEX);
 
     let index_buf =
-        device.create_buffer_with_data(index_bytes.as_ref(), wgpu::BufferUsage::INDEX);
+        device.create_buffer_with_data(bytemuck::cast_slice(&index_data), wgpu::BufferUsage::INDEX);
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         bind_group_layouts: &[&bind_group_layout],
     });
 
     let uniform_buf = device.create_buffer_with_data(
-        vertex_bytes.as_ref(),
+        bytemuck::cast_slice(&vertex_data),
         wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     );
 

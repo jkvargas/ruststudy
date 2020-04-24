@@ -9,24 +9,16 @@ use wgpu::{BindGroupLayoutDescriptor,
            VertexFormat,
            VertexStateDescriptor,
            InputStepMode};
-use serde::ser::{Serialize, Serializer, SerializeStruct};
+use bytemuck::{Zeroable, Pod};
+
+unsafe impl Zeroable for Vertex {}
+unsafe impl Pod for Vertex {}
 
 #[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct Vertex {
     position: Vector4<f32>,
     color: Vector3<f32>
-}
-
-impl Serialize for Vertex {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("Vertex", 2)?;
-        state.serialize_field("position", &self.position)?;
-        state.serialize_field("color", &self.color)?;
-        state.end()
-    }
 }
 
 impl Vertex {
