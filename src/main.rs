@@ -9,6 +9,7 @@ use nalgebra::{Vector3, Vector4, Vector, Point3};
 use wgpu::{read_spirv, PipelineLayout, PowerPreference, PresentMode, PrimitiveTopology, ProgrammableStageDescriptor, RasterizationStateDescriptor, RenderPipelineDescriptor, RequestAdapterOptions, Surface, SwapChainDescriptor, VertexStateDescriptor, VertexBufferDescriptor, BindGroupDescriptor, BufferUsage};
 use rustgraphics::renderer::vertex::Vertex;
 use rustgraphics::renderer::camera::Camera;
+use rustgraphics::renderer::mesh::Mesh;
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
@@ -51,28 +52,11 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
     let bind_group_layout = device.create_bind_group_layout(&Vertex::get_layout_descriptor());
 
-    let vertex_data = [
-        Vertex::new(
-            Vector4::new(-0.5, -0.5, 0.0, 1.0),
-            Vector3::new(1.0, 0.0, 0.0),
-        ),
-        Vertex::new(
-            Vector4::new(0.5, -0.5, 0.0, 1.0),
-            Vector3::new(0.0, 1.0, 0.0),
-        ),
-        Vertex::new(
-            Vector4::new(0.5, 0.5, 0.0, 1.0),
-            Vector3::new(0.0, 0.0, 1.0),
-        ),
-        Vertex::new(
-            Vector4::new(-0.5, 0.5, 0.0, 1.0),
-            Vector3::new(0.0, 0.0, 1.0),
-        ),
-    ];
+    let mesh = Mesh::new();
+    let index_data = mesh.indices;
+    let vertex_data = mesh.vertices;
 
-    let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
-
-    let camera = Camera::new(Point3::new(1.5f32, -5.0, 3.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 10.0);
+    let camera = Camera::new(Point3::new(10.0, 0.0, 30.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 100.0);
     let view = camera.build_projection_matrix();
 
     let vertex_buf =
