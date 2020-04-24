@@ -7,8 +7,8 @@ use winit::{
 use futures::executor::block_on;
 use nalgebra::{Vector3, Vector4, Vector};
 use wgpu::{read_spirv, PipelineLayout, PowerPreference, PresentMode, PrimitiveTopology, ProgrammableStageDescriptor, RasterizationStateDescriptor, RenderPipelineDescriptor, RequestAdapterOptions, Surface, SwapChainDescriptor, VertexStateDescriptor, VertexBufferDescriptor, BindGroupDescriptor, BufferUsage};
-use rustgraphics::renderer::vertex::{Vertex, IntVertex};
-use zerocopy::AsBytes;
+use rustgraphics::renderer::vertex::Vertex;
+use rustgraphics::renderer::camera::Camera;
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
@@ -41,9 +41,9 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let fs_module =
         device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
 
-    let bind_group_layout = device.create_bind_group_layout(&IntVertex::get_layout_descriptor());
+    let bind_group_layout = device.create_bind_group_layout(&Vertex::get_layout_descriptor());
 
-    let vertex_vec = [
+    let vertex_data = [
         Vertex::new(
             Vector4::new(-0.5, -0.5, 0.0, 1.0),
             Vector3::new(1.0, 0.0, 0.0),
@@ -63,21 +63,21 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     ];
 
     let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
+    let vertex_bytes = bincode::serialize(&vertex_data).unwrap();
+    let index_bytes = bincode::serialize(&index_data).unwrap();
 
-    //let (vertex_vec, index_data) = create_triangle();
-    let vertex_data = vertex_vec.into_iter().map(|e| e.as_intvertex()).collect::<Vec<IntVertex>>();
     let vertex_buf =
-        device.create_buffer_with_data(vertex_data.as_bytes(), wgpu::BufferUsage::VERTEX);
+        device.create_buffer_with_data(vertex_bytes.as_ref(), wgpu::BufferUsage::VERTEX);
 
     let index_buf =
-        device.create_buffer_with_data(index_data.as_bytes(), wgpu::BufferUsage::INDEX);
+        device.create_buffer_with_data(index_bytes.as_ref(), wgpu::BufferUsage::INDEX);
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         bind_group_layouts: &[&bind_group_layout],
     });
 
     let uniform_buf = device.create_buffer_with_data(
-        vertex_data.as_bytes(),
+        vertex_bytes.as_ref(),
         wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     );
 
@@ -118,7 +118,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             write_mask: wgpu::ColorWrite::ALL,
         }],
         depth_stencil_state: None,
-        vertex_state: IntVertex::get_state_descriptor(),
+        vertex_state: Vertex::get_state_descriptor(),
         sample_count: 1,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,

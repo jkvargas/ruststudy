@@ -1,5 +1,4 @@
 use nalgebra::{Vector3, Vector4};
-use zerocopy::{FromBytes, AsBytes};
 use wgpu::{BindGroupLayoutDescriptor,
            BindGroupLayoutEntry,
            BindingType,
@@ -10,24 +9,31 @@ use wgpu::{BindGroupLayoutDescriptor,
            VertexFormat,
            VertexStateDescriptor,
            InputStepMode};
+use serde::ser::{Serialize, Serializer, SerializeStruct};
 
+#[repr(C)]
 pub struct Vertex {
     position: Vector4<f32>,
     color: Vector3<f32>
 }
 
-#[derive(Clone, Copy, FromBytes, AsBytes)]
-#[repr(C)]
-pub struct IntVertex {
-    position: [f32; 4],
-    color: [f32; 3]
+impl Serialize for Vertex {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Vertex", 2)?;
+        state.serialize_field("position", &self.position)?;
+        state.serialize_field("color", &self.color)?;
+        state.end()
+    }
 }
 
-impl IntVertex {
-    pub fn new(vert: &Vertex) -> Self {
+impl Vertex {
+    pub fn new(position: Vector4<f32>, color: Vector3<f32>) -> Self {
         Self {
-            position: *(&vert.position).as_ref(),
-            color: *(&vert.color).as_ref()
+            position: position,
+            color: color
         }
     }
 
@@ -48,7 +54,7 @@ impl IntVertex {
         VertexStateDescriptor {
             index_format: IndexFormat::Uint16,
             vertex_buffers: &[VertexBufferDescriptor {
-                stride: std::mem::size_of::<IntVertex>() as u64,
+                stride: std::mem::size_of::<Vertex>() as u64,
                 step_mode: InputStepMode::Vertex,
                 attributes: &[
                     VertexAttributeDescriptor {
@@ -64,18 +70,5 @@ impl IntVertex {
                 ],
             }],
         }
-    }
-}
-
-impl Vertex {
-    pub fn new(pos: Vector4<f32>, col: Vector3<f32>) -> Self {
-        Self {
-            position: pos,
-            color: col,
-        }
-    }
-
-    pub fn as_intvertex(&self) -> IntVertex {
-        IntVertex::new(self)
     }
 }
