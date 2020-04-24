@@ -10,6 +10,17 @@ pub struct Camera {
 }
 
 impl Camera {
+    pub fn new(eye: Point3<f32>, target: Point3<f32>, aspect: f32, fovy: f32, znear: f32, zfar: f32) -> Self {
+        Camera {
+            eye: eye,
+            target: target,
+            aspect: aspect,
+            fovy: fovy,
+            znear: znear,
+            zfar: zfar
+        }
+    }
+
     pub fn build_projection_matrix(&self) -> Matrix4<f32> {
         // Our object is translated along the x axis.
         let model = Isometry3::new(Vector3::x(), nalgebra::zero());

@@ -5,7 +5,7 @@ use winit::{
 };
 
 use futures::executor::block_on;
-use nalgebra::{Vector3, Vector4, Vector};
+use nalgebra::{Vector3, Vector4, Vector, Point3};
 use wgpu::{read_spirv, PipelineLayout, PowerPreference, PresentMode, PrimitiveTopology, ProgrammableStageDescriptor, RasterizationStateDescriptor, RenderPipelineDescriptor, RequestAdapterOptions, Surface, SwapChainDescriptor, VertexStateDescriptor, VertexBufferDescriptor, BindGroupDescriptor, BufferUsage};
 use rustgraphics::renderer::vertex::Vertex;
 use rustgraphics::renderer::camera::Camera;
@@ -32,6 +32,14 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             limits: wgpu::Limits::default(),
         })
         .await;
+
+    let mut sc_desc = wgpu::SwapChainDescriptor {
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        format: wgpu::TextureFormat::Bgra8UnormSrgb,
+        width: size.width,
+        height: size.height,
+        present_mode: wgpu::PresentMode::Mailbox,
+    };
 
     let vs = include_bytes!("vert.glsl.spv");
     let vs_module =
@@ -64,6 +72,9 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
     let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
 
+    let camera = Camera::new(Point3::new(1.5f32, -5.0, 3.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 10.0);
+    let view = camera.build_projection_matrix();
+
     let vertex_buf =
         device.create_buffer_with_data(bytemuck::cast_slice(&vertex_data), wgpu::BufferUsage::VERTEX);
 
@@ -75,7 +86,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     });
 
     let uniform_buf = device.create_buffer_with_data(
-        bytemuck::cast_slice(&vertex_data),
+        bytemuck::cast_slice((&view).as_ref()),
         wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     );
 
@@ -122,13 +133,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         alpha_to_coverage_enabled: false,
     });
 
-    let mut sc_desc = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        format: wgpu::TextureFormat::Bgra8UnormSrgb,
-        width: size.width,
-        height: size.height,
-        present_mode: wgpu::PresentMode::Mailbox,
-    };
+
 
     let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
