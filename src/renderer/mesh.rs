@@ -11,7 +11,7 @@ impl Mesh {
         let mut vertices: Vec<Vertex> = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
 
-        let (glft, buffers, _) = gltf::import("monkey.glb").expect("problems");
+        let (glft, buffers, _) = gltf::import("cube.gltf").expect("problems");
 
         for mesh in glft.meshes() {
             for primitive in mesh.primitives() {

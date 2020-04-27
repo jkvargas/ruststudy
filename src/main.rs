@@ -22,8 +22,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         },
         wgpu::BackendBit::PRIMARY,
     )
-    .await
-    .unwrap();
+        .await
+        .unwrap();
 
     let (device, queue) = adapter
         .request_device(&wgpu::DeviceDescriptor {
@@ -52,9 +52,51 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
     let bind_group_layout = device.create_bind_group_layout(&Vertex::get_layout_descriptor());
 
-    let mesh = Mesh::new();
-    let index_data = mesh.indices;
-    let vertex_data = mesh.vertices;
+    // let mesh = Mesh::new();
+    // let index_data = mesh.indices;
+    // let vertex_data = mesh.vertices;
+
+    let vertex_data = [
+        // top (0, 0, 1)
+        Vertex::new(Vector4::new(-1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(-1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        // bottom (0, 0, -1
+        Vertex::new(Vector4::new(-1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(-1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        // right (1, 0, 0
+        Vertex::new(Vector4::new(1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        // left (-1, 0, 0
+        Vertex::new(Vector4::new(-1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(-1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(-1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(-1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        // front (0, 1, 0)
+        Vertex::new(Vector4::new(1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(-1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(-1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        // back (0, -1, 0
+        Vertex::new(Vector4::new(1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(-1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(-1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+        Vertex::new(Vector4::new(1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+    ];
+
+    let index_data: &[u16] = &[
+        0, 1, 2, 2, 3, 0, // top
+        4, 5, 6, 6, 7, 4, // bottom
+        8, 9, 10, 10, 11, 8, // right
+        12, 13, 14, 14, 15, 12, // left
+        16, 17, 18, 18, 19, 16, // front
+        20, 21, 22, 22, 23, 20, // back
+    ];
 
     let camera = Camera::new(Point3::new(10.0, 0.0, 30.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 100.0);
     let view = camera.build_projection_matrix();
@@ -80,8 +122,8 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
             binding: 0,
             resource: wgpu::BindingResource::Buffer {
                 buffer: &uniform_buf,
-                range: 0..64
-            }
+                range: 0..64,
+            },
         }],
         label: None,
     });
@@ -116,7 +158,6 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
     });
-
 
 
     let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
