@@ -1,13 +1,13 @@
 use std::fmt::Debug;
 use derive_more::Display;
+use crate::renderer::vertex::Vertex;
 
 pub mod vertex;
 pub mod camera;
-pub mod mesh;
 pub mod gltfimporter;
 pub mod material;
 
-pub struct Primitive {
+struct Primitive {
     vertex: Vec<Vertex>,
     indices: Vec<u32>,
     material_index: usize,
