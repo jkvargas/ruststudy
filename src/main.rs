@@ -9,7 +9,6 @@ use nalgebra::{Vector3, Vector4, Vector, Point3};
 use wgpu::{read_spirv, PipelineLayout, PowerPreference, PresentMode, PrimitiveTopology, ProgrammableStageDescriptor, RasterizationStateDescriptor, RenderPipelineDescriptor, RequestAdapterOptions, Surface, SwapChainDescriptor, VertexStateDescriptor, VertexBufferDescriptor, BindGroupDescriptor, BufferUsage};
 use rustgraphics::renderer::vertex::Vertex;
 use rustgraphics::renderer::camera::Camera;
-use rustgraphics::renderer::mesh::Mesh;
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
@@ -52,9 +51,9 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
     let bind_group_layout = device.create_bind_group_layout(&Vertex::get_layout_descriptor());
 
-    let mesh = Mesh::new();
-    let index_data = mesh.indices;
-    let vertex_data = mesh.vertices;
+    //let mesh = Mesh::new();
+    //let index_data = mesh.indices;
+    //let vertex_data = mesh.vertices;
 
     dbg!(&index_data);
     dbg!(&vertex_data);

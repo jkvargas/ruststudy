@@ -1,25 +1,21 @@
-use gltf::Image;
-use std::path::Path;
-use std::ffi::OsStr;
-use gltf::material::PbrMetallicRoughness;
-use crate::renderer::material::Material;
-use crate::renderer::vertex::Vertex;
-use crate::renderer::{Primitive, RenderError};
+use gltf::{ Image, material::PbrMetallicRoughness};
+use std::{ path::Path, ffi::OsStr };
+use crate::renderer::{
+    material::Material,
+    vertex::Vertex,
+    Primitive,
+    RenderError,
+    Mesh
+};
 use nalgebra::{Vector4, Vector3, Vector2};
 
 static DEFAULT_MATERIAL: &str = "default.png";
 
-pub struct GLTFImporter<'a> {
-    images: Vec<gltf::Image<'a>>,
-    materials: Vec<Material>,
-    primitives: Vec<Primitive>,
-    indices: Vec<u32>
-}
+pub struct GLTFImporter;
 
-impl<'a> GLTFImporter<'a> {
-    pub fn import_single_mesh<T>(&mut self, path: T) -> Result<Self, RenderError>
+impl GLTFImporter {
+    pub fn import_single_mesh<T>(&mut self, path: T) -> Result<(Mesh, Vec<Material>), RenderError>
         where T: Into<String> {
-        let mut result: Vec<Primitive> = Vec::new();
         let cloned_path = path.into().clone();
 
         let (glft, buffers, _) = gltf::import(cloned_path)?;
@@ -29,61 +25,76 @@ impl<'a> GLTFImporter<'a> {
             return Err(RenderError::Import("Only able to import one mesh per file".to_string()));
         }
 
-        let mesh = meshes.first().unwrap();
+        let mut materials: Vec<Material> = Vec::new();
+        let mut primitives: Vec<Primitive> = Vec::new();
         let images = glft.images().collect::<Vec<Image>>();
 
+        let mesh = meshes.first().unwrap();
         for gltf_primitive in mesh.primitives() {
-            let primitive : Primitive = Default::default();
-            self.fill_positions_for_primitive(&mut primitive, &gltf_primitive, &buffers);
-            self.primitives.push(primitive);
+            let mut primitive: Primitive = Default::default();
+            Self::fill_positions_for_primitive(&mut primitive, &gltf_primitive, &buffers);
+            Self::fill_material_for_primitive(&images, &mut materials,&mut primitive, &gltf_primitive);
+            Self::fill_mode_for_primitive(&mut primitive, &gltf_primitive)?;
+            primitives.push(primitive);
         }
 
-        Ok(Self {
-            primitives: result
-        })
+        Ok((Mesh::new(primitives), materials))
     }
 
+    fn fill_mode_for_primitive(intprimitive: &mut Primitive, primitive: &gltf::Primitive) -> Result<(), RenderError> {
+        intprimitive.mode = match primitive.mode() {
+            gltf::mesh::Mode::Points => wgpu::PrimitiveTopology::PointList,
+            gltf::mesh::Mode::Lines => wgpu::PrimitiveTopology::LineList,
+            gltf::mesh::Mode::LineStrip => wgpu::PrimitiveTopology::LineStrip,
+            gltf::mesh::Mode::Triangles => wgpu::PrimitiveTopology::TriangleList,
+            gltf::mesh::Mode::TriangleStrip => wgpu::PrimitiveTopology::TriangleStrip,
+            _ => return Err(RenderError::Import("Mode is not available".to_string()))
+        };
 
+        Ok(())
+    }
 
-    fn get_material_from_primitive(&mut self, primitive: &gltf::Primitive) {
+    fn fill_material_for_primitive(images: &Vec<gltf::Image<'_>>, materials: &mut Vec<Material>, intprimitive: &mut Primitive, primitive: &gltf::Primitive) {
         let gltf_material: gltf::Material<'_> = primitive.material();
         let pbr = gltf_material.pbr_metallic_roughness();
 
-        let color = Vector4::from(pbr.base_color_factor());
-        let material_filename = self.get_material_filename(&pbr).unwrap_or(DEFAULT_MATERIAL.to_string());
+        let base_color = pbr.base_color_factor();
+        let color = Vector4::new(base_color[0], base_color[1], base_color[2], base_color[3]);
+        let material_filename = Self::get_material_filename(images, &pbr).unwrap_or(DEFAULT_MATERIAL.to_string());
 
         let material = Material::new(material_filename, color);
 
-        self.materials.push(material);
+        materials.push(material);
+
+        intprimitive.material_index = materials.len() - 1;
     }
 
-    fn fill_positions_for_primitive(&self, intprimitive: &mut Primitive, primitive: &gltf::Primitive, buffer_data: &Vec<gltf::buffer::Data>) {
+    fn fill_positions_for_primitive(intprimitive: &mut Primitive, primitive: &gltf::Primitive, buffer_data: &Vec<gltf::buffer::Data>) {
         let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
-        let mut vecvert : Vec<Vertex> = Vec::new();
 
         if let Some(positions) = reader.read_positions() {
             for pos in positions.map(|pos| Vector3::new(pos[0], pos[1], pos[2])).into_iter() {
-                let vert : Vertex = Default::default();
+                let mut vert: Vertex = Default::default();
                 vert.set_position(pos);
-                vecvert.push(vert);
+                intprimitive.vertex.push(vert);
             }
         }
 
         if let Some(normals) = reader.read_normals() {
             for (i, norm) in normals.enumerate() {
-                vecvert[i].set_normal(Vector3::from(norm));
+                intprimitive.vertex[i].set_normal(Vector3::new(norm[0], norm[1], norm[2]));
             }
         }
 
         if let Some(uvs) = reader.read_tex_coords(0) {
             for (i, uv) in uvs.into_f32().enumerate() {
-                vecvert[i].set_uv(Vector2::new(uv[0], uv[1]));
+                intprimitive.vertex[i].set_uv(Vector2::new(uv[0], uv[1]));
             }
         }
 
         if let Some(tangents) = reader.read_tangents() {
             for (i, tan) in tangents.enumerate() {
-                vecvert[i].set_tangent(Vector4::from(tan));
+                intprimitive.vertex[i].set_tangent(Vector4::new(tan[0], tan[1], tan[2], tan[3]));
             }
         }
 
@@ -92,21 +103,20 @@ impl<'a> GLTFImporter<'a> {
                 intprimitive.indices.push(i);
             }
         }
-
-        intprimitive.vertex = vecvert;
     }
 
-    fn get_material_filename(&self, pbr: &PbrMetallicRoughness) -> Option<String> {
+    fn get_material_filename(images: &Vec<gltf::Image<'_>>, pbr: &PbrMetallicRoughness) -> Option<String> {
         if let Some(color_texture) = pbr.base_color_texture() {
             let texture = color_texture.texture();
 
-            if let Some(image) = self.images.get(texture.index()) {
+            if let Some(image) = images.get(texture.index()) {
                 match image.source() {
                     gltf::image::Source::Uri { uri, .. } => {
                         let texture_file_name = Path::new(&uri).file_name().and_then(OsStr::to_str).unwrap().to_string();
 
                         return Some(texture_file_name);
                     }
+                    _ => return None
                 }
             }
         }

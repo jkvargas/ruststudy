@@ -7,7 +7,7 @@ pub mod camera;
 pub mod gltfimporter;
 pub mod material;
 
-struct Primitive {
+pub struct Primitive {
     vertex: Vec<Vertex>,
     indices: Vec<u32>,
     material_index: usize,
@@ -29,17 +29,10 @@ impl Default for Primitive {
     }
 }
 
-impl Primitive {
-    // we don't want to expose the full vector. So lets just add some simple methods to interact with internals
-    pub fn add_vertex(&mut self, vertex: Vertex) {
-        self.vertex.push(vertex);
-    }
-}
-
 impl Mesh {
-    pub fn new() -> Self {
+    pub fn new(primitives: Vec<Primitive>) -> Self {
         Self {
-            primitives: Vec::new()
+            primitives
         }
     }
 }
