@@ -110,13 +110,13 @@ impl GLTFImporter {
             let texture = color_texture.texture();
 
             if let Some(image) = images.get(texture.index()) {
-                match image.source() {
+                return match image.source() {
                     gltf::image::Source::Uri { uri, .. } => {
                         let texture_file_name = Path::new(&uri).file_name().and_then(OsStr::to_str).unwrap().to_string();
 
-                        return Some(texture_file_name);
+                        Some(texture_file_name)
                     }
-                    _ => return None
+                    _ => None
                 }
             }
         }

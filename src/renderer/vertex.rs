@@ -1,14 +1,5 @@
 use nalgebra::{Vector3, Vector4, Vector2};
-use wgpu::{BindGroupLayoutDescriptor,
-           BindGroupLayoutEntry,
-           BindingType,
-           IndexFormat,
-           ShaderStage,
-           VertexAttributeDescriptor,
-           VertexBufferDescriptor,
-           VertexFormat,
-           VertexStateDescriptor,
-           InputStepMode};
+use wgpu::{BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, IndexFormat, ShaderStage, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat, VertexStateDescriptor, InputStepMode, TextureViewDimension, TextureComponentType};
 use bytemuck::{Zeroable, Pod};
 
 unsafe impl Zeroable for Vertex {}
@@ -40,10 +31,10 @@ impl Vertex {
                tangent: Vector4<f32>,
                uv: Vector2<f32>) -> Self {
         Self {
-            position: position,
-            normal: normal,
-            tangent: tangent,
-            uv: uv
+            position,
+            normal,
+            tangent,
+            uv
         }
     }
 
@@ -68,9 +59,23 @@ impl Vertex {
             label: None,
             bindings: &[
                 BindGroupLayoutEntry {
-                    binding: 0,
+                    binding: 0, // layout(location = 0) in vec3 in_position
                     visibility: ShaderStage::VERTEX,
                     ty: BindingType::UniformBuffer { dynamic: false },
+                },
+                BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: ShaderStage::FRAGMENT,
+                    ty: BindingType::SampledTexture {
+                        dimension: TextureViewDimension::D2,
+                        component_type: TextureComponentType::Float,
+                        multisampled: false
+                    }
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler { comparison: false },
                 }
             ],
         }
@@ -84,14 +89,24 @@ impl Vertex {
                 step_mode: InputStepMode::Vertex,
                 attributes: &[
                     VertexAttributeDescriptor {
-                        format: VertexFormat::Float4,
+                        format: VertexFormat::Float3,
                         shader_location: 0,
                         offset: 0,
                     },
                     VertexAttributeDescriptor {
                         format: VertexFormat::Float3,
                         shader_location: 1,
-                        offset: 4 * 4,
+                        offset: 3 * 4,
+                    },
+                    VertexAttributeDescriptor {
+                        format: VertexFormat::Float4,
+                        shader_location: 2,
+                        offset: 6 * 4,
+                    },
+                    VertexAttributeDescriptor {
+                        format: VertexFormat::Float2,
+                        shader_location: 3,
+                        offset: 10 * 4,
                     },
                 ],
             }],
