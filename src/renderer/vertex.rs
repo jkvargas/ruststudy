@@ -1,6 +1,20 @@
-use nalgebra::{Vector3, Vector4, Vector2};
-use wgpu::{BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, IndexFormat, ShaderStage, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat, VertexStateDescriptor, InputStepMode, TextureViewDimension, TextureComponentType};
-use bytemuck::{Zeroable, Pod};
+use nalgebra::{Vector3,
+               Vector4,
+               Vector2};
+use wgpu::{ BindGroupLayoutDescriptor,
+            BindGroupLayoutEntry,
+            BindingType,
+            IndexFormat,
+            ShaderStage,
+            VertexAttributeDescriptor,
+            VertexBufferDescriptor,
+            VertexFormat,
+            VertexStateDescriptor,
+            InputStepMode,
+            TextureViewDimension,
+            TextureComponentType};
+use bytemuck::{Zeroable,
+               Pod};
 
 unsafe impl Zeroable for Vertex {}
 unsafe impl Pod for Vertex {}
@@ -52,33 +66,6 @@ impl Vertex {
 
     pub fn set_tangent(&mut self, tangent: Vector4<f32>) {
         self.tangent = tangent;
-    }
-
-    pub fn get_layout_descriptor<'a>() -> BindGroupLayoutDescriptor<'a> {
-        BindGroupLayoutDescriptor {
-            label: None,
-            bindings: &[
-                BindGroupLayoutEntry {
-                    binding: 0, // layout(location = 0) in vec3 in_position
-                    visibility: ShaderStage::VERTEX,
-                    ty: BindingType::UniformBuffer { dynamic: false },
-                },
-                BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: ShaderStage::FRAGMENT,
-                    ty: BindingType::SampledTexture {
-                        dimension: TextureViewDimension::D2,
-                        component_type: TextureComponentType::Float,
-                        multisampled: false
-                    }
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false },
-                }
-            ],
-        }
     }
 
     pub fn get_state_descriptor<'a>() -> VertexStateDescriptor<'a> {

@@ -1,20 +1,91 @@
-use gltf::{ Image, material::PbrMetallicRoughness};
-use std::{ path::Path, ffi::OsStr };
-use crate::renderer::{
-    material::Material,
-    vertex::Vertex,
-    Primitive,
-    RenderError,
-    Mesh
-};
+use gltf::{Image, material::PbrMetallicRoughness};
+use std::{path::Path, ffi::OsStr};
+use crate::renderer::{material::Material, vertex::Vertex, Primitive, RenderError, Mesh, IntoWgpuEquivalent};
 use nalgebra::{Vector4, Vector3, Vector2};
+use gltf::material::NormalTexture;
+use wgpu::{SamplerDescriptor, FilterMode, AddressMode};
+use gltf::json::texture::{MagFilter, MinFilter};
+use winit::event::VirtualKeyCode::Add;
 
 static DEFAULT_MATERIAL: &str = "default.png";
 
 pub struct GLTFImporter;
 
+impl IntoWgpuEquivalent for MagFilter {
+    type Output = wgpu::FilterMode;
+
+    fn into_wgpu_equivalent(self) -> Self::Output {
+        match self {
+            MagFilter::Linear => FilterMode::Linear,
+            MagFilter::Nearest => FilterMode::Nearest
+        }
+    }
+}
+
+impl IntoWgpuEquivalent for gltf::mesh::Mode {
+    type Output = wgpu::PrimitiveTopology;
+
+    fn into_wgpu_equivalent(self) -> Self::Output {
+        match self {
+            gltf::mesh::Mode::Points => wgpu::PrimitiveTopology::PointList,
+            gltf::mesh::Mode::Lines => wgpu::PrimitiveTopology::LineList,
+            gltf::mesh::Mode::LineStrip => wgpu::PrimitiveTopology::LineStrip,
+            gltf::mesh::Mode::Triangles => wgpu::PrimitiveTopology::TriangleList,
+            gltf::mesh::Mode::TriangleStrip => wgpu::PrimitiveTopology::TriangleStrip,
+            gltf::mesh::Mode::LineLoop => wgpu::PrimitiveTopology::LineList,
+            gltf::mesh::Mode::TriangleFan => wgpu::PrimitiveTopology::TriangleList
+        }
+    }
+}
+
+impl IntoWgpuEquivalent for gltf::texture::WrappingMode {
+    type Output = wgpu::AddressMode;
+
+    fn into_wgpu_equivalent(self) -> Self::Output {
+        match self {
+            gltf::texture::WrappingMode::ClampToEdge => AddressMode::ClampToEdge,
+            gltf::texture::WrappingMode::MirroredRepeat => AddressMode::MirrorRepeat,
+            gltf::texture::WrappingMode::Repeat => AddressMode::Repeat
+        }
+    }
+}
+
+impl IntoWgpuEquivalent for gltf::texture::Sampler {
+    type Output = wgpu::SamplerDescriptor;
+
+    fn into_wgpu_equivalent(self) -> Self::Output {
+        SamplerDescriptor {
+            min_filter: self.min_filter().unwrap_or(MinFilter::Linear).into_wgpu_equivalent(),
+            mag_filter: self.mag_filter().unwrap_or(MagFilter::Linear).into_wgpu_equivalent(),
+            address_mode_u: self.wrap_s().into_wgpu_equivalent(),
+            address_mode_v: self.wrap_t().into_wgpu_equivalent(),
+            // not quite sure about this one... couldn't find a equivalent in https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md
+            address_mode_w: AddressMode::ClampToEdge,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 100.0,
+            compare: wgpu::CompareFunction::Undefined,
+            mipmap_filter: wgpu::FilterMode::Nearest
+        }
+    }
+}
+
+impl IntoWgpuEquivalent for MinFilter {
+    type Output = wgpu::FilterMode;
+
+    fn into_wgpu_equivalent(self) -> Self::Output {
+        match self {
+            MinFilter::Linear => FilterMode::Linear,
+            MinFilter::Nearest => FilterMode::Nearest,
+            MinFilter::LinearMipmapLinear => FilterMode::Linear,
+            MinFilter::LinearMipmapNearest => FilterMode::Linear,
+            MinFilter::NearestMipmapLinear => FilterMode::Nearest,
+            MinFilter::NearestMipmapNearest => FilterMode::Nearest
+        }
+    }
+}
+
 impl GLTFImporter {
-    pub fn import_single_mesh<T>(&mut self, path: T) -> Result<(Mesh, Vec<Material>), RenderError>
+    pub fn import_single_mesh<T>(path: T) -> Result<(Mesh, Vec<Material>, Vec<SamplerDescriptor>), RenderError>
         where T: Into<String> {
         let cloned_path = path.into().clone();
 
@@ -33,25 +104,12 @@ impl GLTFImporter {
         for gltf_primitive in mesh.primitives() {
             let mut primitive: Primitive = Default::default();
             Self::fill_positions_for_primitive(&mut primitive, &gltf_primitive, &buffers);
-            Self::fill_material_for_primitive(&images, &mut materials,&mut primitive, &gltf_primitive);
-            Self::fill_mode_for_primitive(&mut primitive, &gltf_primitive)?;
+            Self::fill_material_for_primitive(&images, &mut materials, &mut primitive, &gltf_primitive);
+            primitive.mode = gltf_primitive.mode().into_wgpu_equivalent();
             primitives.push(primitive);
         }
 
-        Ok((Mesh::new(primitives), materials))
-    }
-
-    fn fill_mode_for_primitive(intprimitive: &mut Primitive, primitive: &gltf::Primitive) -> Result<(), RenderError> {
-        intprimitive.mode = match primitive.mode() {
-            gltf::mesh::Mode::Points => wgpu::PrimitiveTopology::PointList,
-            gltf::mesh::Mode::Lines => wgpu::PrimitiveTopology::LineList,
-            gltf::mesh::Mode::LineStrip => wgpu::PrimitiveTopology::LineStrip,
-            gltf::mesh::Mode::Triangles => wgpu::PrimitiveTopology::TriangleList,
-            gltf::mesh::Mode::TriangleStrip => wgpu::PrimitiveTopology::TriangleStrip,
-            _ => return Err(RenderError::Import("Mode is not available".to_string()))
-        };
-
-        Ok(())
+        Ok((Mesh::new(primitives), materials, glft.samplers().map(|x| x.into_wgpu_equivalent()).collect()))
     }
 
     fn fill_material_for_primitive(images: &Vec<gltf::Image<'_>>, materials: &mut Vec<Material>, intprimitive: &mut Primitive, primitive: &gltf::Primitive) {
@@ -60,9 +118,13 @@ impl GLTFImporter {
 
         let base_color = pbr.base_color_factor();
         let color = Vector4::new(base_color[0], base_color[1], base_color[2], base_color[3]);
-        let material_filename = Self::get_material_filename(images, &pbr).unwrap_or(DEFAULT_MATERIAL.to_string());
+        let normal_texture = Self::get_normal_map(&gltf_material.normal_texture());
+        let main_texture = Self::get_texture_url(&pbr.base_color_texture(), &images);
+        let roughness_texture = Self::get_texture_url(&pbr.metallic_roughness_texture(), &images);
 
-        let material = Material::new(material_filename, color);
+        let material = Material::new(main_texture.unwrap_or(DEFAULT_MATERIAL.to_string()),
+                                     normal_texture.unwrap_or(DEFAULT_MATERIAL.to_string()),
+                                     roughness_texture.unwrap_or(DEFAULT_MATERIAL.to_string()), color);
 
         materials.push(material);
 
@@ -105,20 +167,37 @@ impl GLTFImporter {
         }
     }
 
-    fn get_material_filename(images: &Vec<gltf::Image<'_>>, pbr: &PbrMetallicRoughness) -> Option<String> {
-        if let Some(color_texture) = pbr.base_color_texture() {
-            let texture = color_texture.texture();
-
-            if let Some(image) = images.get(texture.index()) {
-                return match image.source() {
+    fn get_texture_url(info: &Option<gltf::texture::Info<'_>>,
+                       images: &Vec<gltf::Image<'_>>) -> Option<String> {
+        if let Some(res) = info {
+            let tex = res.texture();
+            let image: Option<&gltf::Image<'_>> = images.get(tex.index());
+            if let Some(img) = image {
+                return match img.source() {
                     gltf::image::Source::Uri { uri, .. } => {
                         let texture_file_name = Path::new(&uri).file_name().and_then(OsStr::to_str).unwrap().to_string();
 
                         Some(texture_file_name)
                     }
                     _ => None
-                }
+                };
             }
+        }
+
+        None
+    }
+
+    fn get_normal_map(normal_texture: &Option<NormalTexture>) -> Option<String> {
+        if let Some(normal) = normal_texture {
+            let texture = normal.texture().source().source();
+            return match texture {
+                gltf::image::Source::Uri { uri, .. } => {
+                    let texture_file_name = Path::new(&uri).file_name().and_then(OsStr::to_str).unwrap().to_string();
+
+                    Some(texture_file_name)
+                }
+                _ => None
+            };
         }
 
         None

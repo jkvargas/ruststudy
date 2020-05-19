@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use derive_more::Display;
 use crate::renderer::vertex::Vertex;
+use wgpu::{Buffer, Device, BufferUsage};
 
 pub mod vertex;
 pub mod camera;
@@ -14,8 +15,37 @@ pub struct Primitive {
     mode: wgpu::PrimitiveTopology
 }
 
+pub trait IntoWgpuEquivalent {
+    type Output;
+
+    fn into_wgpu_equivalent(self) -> Self::Output;
+}
+
 pub struct Mesh {
     primitives: Vec<Primitive>
+}
+
+impl Mesh {
+    pub fn get_vertex_buffer_per_primitive(&self, device: &Device) -> Vec<Buffer> {
+        self.primitives.iter().map(|x| x.get_vertex_buffer(device)).collect()
+    }
+
+    pub fn get_buffer_index(&self, device: &Device) -> Buffer {
+    }
+
+    pub fn get_buffer_index_per_primitive(&self, device: &Device) -> Vec<Buffer> {
+        self.primitives.iter().map(|x| x.get_index_buffer(device)).collect()
+    }
+}
+
+impl Primitive {
+    pub fn get_vertex_buffer(&self, device: &Device) -> Buffer {
+        device.create_buffer_with_data(bytemuck::cast_slice(&self.vertex), BufferUsage::VERTEX)
+    }
+
+    pub fn get_index_buffer(&self, device: &Device) -> Buffer {
+        device.create_buffer_with_data(bytemuck::cast_slice(&self.indices), BufferUsage::INDEX)
+    }
 }
 
 impl Default for Primitive {

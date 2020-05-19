@@ -9,6 +9,7 @@ use nalgebra::{Vector3, Vector4, Vector, Point3};
 use wgpu::{read_spirv, PipelineLayout, PowerPreference, PresentMode, PrimitiveTopology, ProgrammableStageDescriptor, RasterizationStateDescriptor, RenderPipelineDescriptor, RequestAdapterOptions, Surface, SwapChainDescriptor, VertexStateDescriptor, VertexBufferDescriptor, BindGroupDescriptor, BufferUsage};
 use rustgraphics::renderer::vertex::Vertex;
 use rustgraphics::renderer::camera::Camera;
+use rustgraphics::renderer::gltfimporter::GLTFImporter;
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
@@ -49,59 +50,57 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let fs_module =
         device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
 
-    let bind_group_layout = device.create_bind_group_layout(&Vertex::get_layout_descriptor());
-
-    //let mesh = Mesh::new();
-    //let index_data = mesh.indices;
-    //let vertex_data = mesh.vertices;
+    let (mesh, materials, samplers) = GLTFImporter::import_single_mesh("BoxVertexColors".to_string())?;
 
     dbg!(&index_data);
     dbg!(&vertex_data);
 
-    // let vertex_data = [
-    //     // top (0, 0, 1)
-    //     Vertex::new(Vector4::new(-1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(-1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     // bottom (0, 0, -1
-    //     Vertex::new(Vector4::new(-1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(-1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     // right (1, 0, 0
-    //     Vertex::new(Vector4::new(1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     // left (-1, 0, 0
-    //     Vertex::new(Vector4::new(-1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(-1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(-1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(-1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     // front (0, 1, 0)
-    //     Vertex::new(Vector4::new(1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(-1.0, 1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(-1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(1.0, 1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     // back (0, -1, 0
-    //     Vertex::new(Vector4::new(1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(-1.0, -1.0, 1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(-1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    //     Vertex::new(Vector4::new(1.0, -1.0, -1.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
-    // ];
-    //
-    // let index_data: &[u16] = &[
-    //     0, 1, 2, 2, 3, 0, // top
-    //     4, 5, 6, 6, 7, 4, // bottom
-    //     8, 9, 10, 10, 11, 8, // right
-    //     12, 13, 14, 14, 15, 12, // left
-    //     16, 17, 18, 18, 19, 16, // front
-    //     20, 21, 22, 22, 23, 20, // back
-    // ];
-
     let camera = Camera::new(Point3::new(10.0, 0.0, 30.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 100.0);
     let view = camera.build_projection_matrix();
+
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: None,
+        bindings: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::SampledTexture {
+                    multisampled: false,
+                    component_type: wgpu::TextureComponentType::Float,
+                    dimension: wgpu::TextureViewDimension::D2,
+                },
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::Sampler { comparison: false },
+            },
+        ],
+    });
+
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &bind_group_layout,
+        bindings: &[
+            wgpu::Binding {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(uniform_buf.slice(..)),
+            },
+            wgpu::Binding {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(&texture_view),
+            },
+            wgpu::Binding {
+                binding: 2,
+                resource: wgpu::BindingResource::Sampler(&sampler),
+            },
+        ],
+        label: None,
+    });
 
     let vertex_buf =
         device.create_buffer_with_data(bytemuck::cast_slice(&vertex_data), wgpu::BufferUsage::VERTEX);
