@@ -9,10 +9,10 @@ pub mod gltfimporter;
 pub mod material;
 
 pub struct Primitive {
-    vertex: Vec<Vertex>,
-    indices: Vec<u32>,
-    material_index: usize,
-    mode: wgpu::PrimitiveTopology
+    pub vertex: Vec<Vertex>,
+    pub indices: Vec<u32>,
+    pub material_index: usize,
+    pub mode: wgpu::PrimitiveTopology
 }
 
 pub trait IntoWgpuEquivalent {
@@ -22,20 +22,7 @@ pub trait IntoWgpuEquivalent {
 }
 
 pub struct Mesh {
-    primitives: Vec<Primitive>
-}
-
-impl Mesh {
-    pub fn get_vertex_buffer_per_primitive(&self, device: &Device) -> Vec<Buffer> {
-        self.primitives.iter().map(|x| x.get_vertex_buffer(device)).collect()
-    }
-
-    pub fn get_buffer_index(&self, device: &Device) -> Buffer {
-    }
-
-    pub fn get_buffer_index_per_primitive(&self, device: &Device) -> Vec<Buffer> {
-        self.primitives.iter().map(|x| x.get_index_buffer(device)).collect()
-    }
+    pub primitives: Vec<Primitive>
 }
 
 impl Primitive {

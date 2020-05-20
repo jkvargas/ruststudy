@@ -50,7 +50,7 @@ impl IntoWgpuEquivalent for gltf::texture::WrappingMode {
     }
 }
 
-impl IntoWgpuEquivalent for gltf::texture::Sampler {
+impl IntoWgpuEquivalent for gltf::texture::Sampler<'_> {
     type Output = wgpu::SamplerDescriptor;
 
     fn into_wgpu_equivalent(self) -> Self::Output {
