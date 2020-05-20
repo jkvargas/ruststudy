@@ -53,7 +53,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
     let (mesh, materials, samplers) = GLTFImporter::import_single_mesh("cube.gltf".to_string()).unwrap();
 
-    let camera = Camera::new(Point3::new(10.0, 0.0, 30.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 100.0);
+    let camera = Camera::new(Point3::new(10.0, 0.0, 10.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 100.0);
     let view = camera.build_projection_matrix();
 
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
