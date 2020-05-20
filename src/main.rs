@@ -51,7 +51,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let fs_module =
         device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs[..])).unwrap());
 
-    let (mesh, materials, samplers) = GLTFImporter::import_single_mesh("BoxVertexColors.gltf".to_string()).unwrap();
+    let (mesh, materials, samplers) = GLTFImporter::import_single_mesh("cube.gltf".to_string()).unwrap();
 
     let camera = Camera::new(Point3::new(10.0, 0.0, 30.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 100.0);
     let view = camera.build_projection_matrix();
@@ -96,18 +96,6 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         bytemuck::cast_slice((&view).as_ref()),
         wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
     );
-
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &bind_group_layout,
-        bindings: &[wgpu::Binding {
-            binding: 0,
-            resource: wgpu::BindingResource::Buffer {
-                buffer: &uniform_buf,
-                range: 0..64,
-            },
-        }],
-        label: None,
-    });
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         layout: &pipeline_layout,
