@@ -70,7 +70,7 @@ impl Vertex {
 
     pub fn get_state_descriptor<'a>() -> VertexStateDescriptor<'a> {
         VertexStateDescriptor {
-            index_format: IndexFormat::Uint16,
+            index_format: IndexFormat::Uint32,
             vertex_buffers: &[VertexBufferDescriptor {
                 stride: std::mem::size_of::<Vertex>() as u64,
                 step_mode: InputStepMode::Vertex,
