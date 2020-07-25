@@ -1,18 +1,21 @@
 use std::fmt::Debug;
 use derive_more::Display;
 use crate::renderer::vertex::Vertex;
-use wgpu::{Buffer, Device, BufferUsage};
+use wgpu::{Buffer, Device, BufferUsage, ShaderStage, BindGroupLayout, BindGroup};
+use bytemuck::Pod;
 
 pub mod vertex;
 pub mod camera;
 pub mod gltfimporter;
 pub mod material;
+pub mod light;
 
+#[derive(Debug)]
 pub struct Primitive {
     pub vertex: Vec<Vertex>,
     pub indices: Vec<u32>,
     pub material_index: usize,
-    pub mode: wgpu::PrimitiveTopology
+    pub mode: wgpu::PrimitiveTopology,
 }
 
 pub trait IntoWgpuEquivalent {
@@ -21,6 +24,34 @@ pub trait IntoWgpuEquivalent {
     fn into_wgpu_equivalent(self) -> Self::Output;
 }
 
+pub fn create_buffer_and_layout<TPod: Pod>(device: &Device, visibility: ShaderStage, object: &[TPod]) -> (Buffer, BindGroupLayout, BindGroup) {
+    let buffer = device.create_buffer_with_data(bytemuck::cast_slice(object), wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST);
+
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        bindings: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: visibility,
+            ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+        }],
+        label: None,
+    });
+
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &bind_group_layout,
+        bindings: &[wgpu::Binding {
+            binding: 0,
+            resource: wgpu::BindingResource::Buffer {
+                buffer: &buffer,
+                range: 0..std::mem::size_of_val(&buffer) as wgpu::BufferAddress,
+            },
+        }],
+        label: None,
+    });
+
+    (buffer, bind_group_layout, bind_group)
+}
+
+#[derive(Debug)]
 pub struct Mesh {
     pub primitives: Vec<Primitive>
 }
@@ -41,7 +72,7 @@ impl Default for Primitive {
             vertex: Vec::new(),
             indices: Vec::new(),
             material_index: 0,
-            mode: wgpu::PrimitiveTopology::TriangleList
+            mode: wgpu::PrimitiveTopology::TriangleList,
         }
     }
 }

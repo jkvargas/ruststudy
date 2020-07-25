@@ -1,4 +1,4 @@
-use nalgebra::{Vector3, Point3, Matrix4, Isometry3, Perspective3};
+use nalgebra::{Vector3, Point3, Matrix4, Isometry3, Perspective3, U3};
 
 pub struct Camera {
     eye: Point3<f32>,
@@ -21,21 +21,26 @@ impl Camera {
         }
     }
 
-    pub fn build_projection_matrix(&self) -> Matrix4<f32> {
-        // Our object is translated along the x axis.
+    pub fn get_mv_matrix(&self) -> Matrix4<f32> {
+        let mv = self.get_mv_isometry();
+        mv.to_homogeneous()
+    }
+
+    fn get_mv_isometry(&self) -> Isometry3<f32> {
         let model = Isometry3::new(Vector3::x(), nalgebra::zero());
-        let view   = Isometry3::look_at_rh(&self.eye, &self.target, &Vector3::y());
+        let view = Isometry3::look_at_rh(&self.eye, &self.target, &Vector3::y());
 
-        // A perspective projection.
+        view * model
+    }
+
+    pub fn get_projection_matrix(&self) -> Matrix4<f32> {
         let projection = Perspective3::new(self.aspect, self.fovy, self.znear, self.zfar);
+        projection.to_homogeneous()
+    }
 
-        // The combination of the model with the view is still an isometry.
-        let model_view = view * model;
-
-        // Convert everything to a `Matrix4` so that they can be combined.
-        let mat_model_view = model_view.to_homogeneous();
-
-        // Combine everything.
+    pub fn build_projection_matrix(&self) -> Matrix4<f32> {
+        let projection = Perspective3::new(self.aspect, self.fovy, self.znear, self.zfar);
+        let mat_model_view = self.get_mv_matrix();
         projection.as_matrix() * mat_model_view
     }
 }

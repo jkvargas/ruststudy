@@ -1,22 +1,23 @@
 use nalgebra::{Vector3,
                Vector4,
                Vector2};
-use wgpu::{ BindGroupLayoutDescriptor,
-            BindGroupLayoutEntry,
-            BindingType,
-            IndexFormat,
-            ShaderStage,
-            VertexAttributeDescriptor,
-            VertexBufferDescriptor,
-            VertexFormat,
-            VertexStateDescriptor,
-            InputStepMode,
-            TextureViewDimension,
-            TextureComponentType};
+use wgpu::{BindGroupLayoutDescriptor,
+           BindGroupLayoutEntry,
+           BindingType,
+           IndexFormat,
+           ShaderStage,
+           VertexAttributeDescriptor,
+           VertexBufferDescriptor,
+           VertexFormat,
+           VertexStateDescriptor,
+           InputStepMode,
+           TextureViewDimension,
+           TextureComponentType};
 use bytemuck::{Zeroable,
                Pod};
 
 unsafe impl Zeroable for Vertex {}
+
 unsafe impl Pod for Vertex {}
 
 #[repr(C)]
@@ -25,7 +26,7 @@ pub struct Vertex {
     position: Vector3<f32>,
     normal: Vector3<f32>,
     tangent: Vector4<f32>,
-    uv: Vector2<f32>
+    uv: Vector2<f32>,
 }
 
 impl Default for Vertex {
@@ -34,7 +35,7 @@ impl Default for Vertex {
             uv: Vector2::<f32>::zeros(),
             tangent: Vector4::<f32>::zeros(),
             normal: Vector3::<f32>::zeros(),
-            position: Vector3::<f32>::zeros()
+            position: Vector3::<f32>::zeros(),
         }
     }
 }
@@ -48,7 +49,7 @@ impl Vertex {
             position,
             normal,
             tangent,
-            uv
+            uv,
         }
     }
 
@@ -72,7 +73,7 @@ impl Vertex {
         VertexStateDescriptor {
             index_format: IndexFormat::Uint32,
             vertex_buffers: &[VertexBufferDescriptor {
-                stride: std::mem::size_of::<Vertex>() as u64,
+                stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
                 step_mode: InputStepMode::Vertex,
                 attributes: &[
                     VertexAttributeDescriptor {
@@ -83,17 +84,17 @@ impl Vertex {
                     VertexAttributeDescriptor {
                         format: VertexFormat::Float3,
                         shader_location: 1,
-                        offset: 3 * 4,
+                        offset: std::mem::size_of::<Vector3<f32>>() as wgpu::BufferAddress,
                     },
                     VertexAttributeDescriptor {
                         format: VertexFormat::Float4,
                         shader_location: 2,
-                        offset: 6 * 4,
+                        offset: 2 * std::mem::size_of::<Vector3<f32>>() as wgpu::BufferAddress,
                     },
                     VertexAttributeDescriptor {
                         format: VertexFormat::Float2,
                         shader_location: 3,
-                        offset: 10 * 4,
+                        offset: std::mem::size_of::<Vector4<f32>>() as wgpu::BufferAddress + 2 * std::mem::size_of::<Vector3<f32>>() as wgpu::BufferAddress,
                     },
                 ],
             }],

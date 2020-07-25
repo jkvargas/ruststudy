@@ -9,8 +9,9 @@ use nalgebra::{Vector3, Vector4, Vector, Point3};
 use wgpu::{read_spirv, PipelineLayout, PowerPreference, PresentMode, PrimitiveTopology, ProgrammableStageDescriptor, RasterizationStateDescriptor, RenderPipelineDescriptor, RequestAdapterOptions, Surface, SwapChainDescriptor, VertexStateDescriptor, VertexBufferDescriptor, BindGroupDescriptor, BufferUsage, Buffer};
 use rustgraphics::renderer::vertex::Vertex;
 use rustgraphics::renderer::camera::Camera;
+use rustgraphics::renderer::light::Light;
 use rustgraphics::renderer::gltfimporter::GLTFImporter;
-use rustgraphics::renderer::Primitive;
+use rustgraphics::renderer::{Primitive, create_buffer_and_layout};
 
 async fn run(event_loop: EventLoop<()>, window: Window) {
     let size = window.inner_size();
@@ -54,48 +55,28 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
     let (mesh, materials, samplers) = GLTFImporter::import_single_mesh("cube.gltf".to_string()).unwrap();
 
     let camera = Camera::new(Point3::new(10.0, 5.0, 10.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 100.0);
-    let view = camera.build_projection_matrix();
+    let view = camera.get_mv_matrix();
+    let proj = camera.get_projection_matrix();
 
-    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        bindings: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-            }
-        ],
-    });
+    let light = Light::new(Vector3::new(0.0, 0.0, 10.0), Vector3::new(0.0, 0.1, 0.0));
 
-    let uniform_buf = device.create_buffer_with_data(
-        bytemuck::cast_slice((&view).as_ref()),
-        wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    );
+    let (light_buffer, light_bind_group_layout, light_bind_group) =
+        create_buffer_and_layout(&device, wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT, &[light]);
+    let (view_buffer, view_bind_group_layout, view_bind_group) =
+        create_buffer_and_layout(&device, wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT, view.as_ref());
+    let (proj_buffer, proj_bind_group_layout, proj_bind_group) =
+        create_buffer_and_layout(&device, wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT, proj.as_ref());
 
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        layout: &bind_group_layout,
-        bindings: &[wgpu::Binding {
-            binding: 0,
-            resource: wgpu::BindingResource::Buffer {
-                buffer: &uniform_buf,
-                range: 0..64
-            }
-        }],
-        label: None,
-    });
-
-    let primitives_content : Vec<(Buffer, Buffer)> = mesh.primitives
+    let primitives_content: Vec<(Buffer, Buffer)> = mesh.primitives
         .iter()
         .map(|x| (x.get_index_buffer(&device), x.get_vertex_buffer(&device))).collect();
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[&view_bind_group_layout,
+            &light_bind_group_layout,
+            &proj_bind_group_layout
+        ],
     });
-
-    let uniform_buf = device.create_buffer_with_data(
-        bytemuck::cast_slice((&view).as_ref()),
-        wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-    );
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         layout: &pipeline_layout,
@@ -127,7 +108,6 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
     });
-
 
     let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
@@ -161,12 +141,14 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                                 g: 0.2,
                                 b: 0.3,
                                 a: 1.0,
-                            }
+                            },
                         }],
                         depth_stencil_attachment: None,
                     });
                     rpass.set_pipeline(&render_pipeline);
-                    rpass.set_bind_group(0, &bind_group, &[]);
+                    rpass.set_bind_group(0, &view_bind_group, &[]);
+                    rpass.set_bind_group(1, &proj_bind_group, &[]);
+                    rpass.set_bind_group(2, &light_bind_group, &[]);
 
                     for i in 0..primitives_content.len() {
                         rpass.set_index_buffer(&primitives_content[i].0, 0, 0);
