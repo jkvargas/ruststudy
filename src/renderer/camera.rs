@@ -29,7 +29,6 @@ impl Camera {
     fn get_mv_isometry(&self) -> Isometry3<f32> {
         let model = Isometry3::new(Vector3::x(), nalgebra::zero());
         let view = Isometry3::look_at_rh(&self.eye, &self.target, &Vector3::y());
-
         view * model
     }
 

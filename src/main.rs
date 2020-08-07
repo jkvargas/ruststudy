@@ -54,28 +54,71 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
 
     let (mesh, materials, samplers) = GLTFImporter::import_single_mesh("cube.gltf".to_string()).unwrap();
 
-    let camera = Camera::new(Point3::new(10.0, 5.0, 10.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 100.0);
+    let camera = Camera::new(Point3::new(10.0, 0.0, 0.0), Point3::new(0.0, 0.0, 0.0), sc_desc.width as f32 / sc_desc.height as f32, 45f32, 1.0, 100.0);
     let view = camera.get_mv_matrix();
+
     let proj = camera.get_projection_matrix();
 
     let light = Light::new(Vector3::new(0.0, 0.0, 10.0), Vector3::new(0.0, 0.1, 0.0));
 
-    let (light_buffer, light_bind_group_layout, light_bind_group) =
-        create_buffer_and_layout(&device, wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT, &[light]);
-    let (view_buffer, view_bind_group_layout, view_bind_group) =
-        create_buffer_and_layout(&device, wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT, view.as_ref());
-    let (proj_buffer, proj_bind_group_layout, proj_bind_group) =
-        create_buffer_and_layout(&device, wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT, proj.as_ref());
+    let light_buffer = device.create_buffer_with_data(bytemuck::cast_slice(&[light]), wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST);
+    let view_buffer = device.create_buffer_with_data(bytemuck::cast_slice((&view).as_ref()), wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST);
+    let proj_buffer = device.create_buffer_with_data(bytemuck::cast_slice((&proj).as_ref()), wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST);
+
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        bindings: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            }
+        ],
+        label: None,
+    });
+
+    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &bind_group_layout,
+        bindings: &[
+            wgpu::Binding {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &light_buffer,
+                    range: 0..std::mem::size_of_val(&light_buffer) as wgpu::BufferAddress,
+                },
+            },
+            wgpu::Binding {
+                binding: 1,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &view_buffer,
+                    range: 0..std::mem::size_of_val(&view_buffer) as wgpu::BufferAddress,
+                },
+            },
+            wgpu::Binding {
+                binding: 2,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &proj_buffer,
+                    range: 0..std::mem::size_of_val(&proj_buffer) as wgpu::BufferAddress,
+                },
+            }],
+        label: None,
+    });
 
     let primitives_content: Vec<(Buffer, Buffer)> = mesh.primitives
         .iter()
         .map(|x| (x.get_index_buffer(&device), x.get_vertex_buffer(&device))).collect();
 
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        bind_group_layouts: &[&view_bind_group_layout,
-            &light_bind_group_layout,
-            &proj_bind_group_layout
-        ],
+        bind_group_layouts: &[&bind_group_layout],
     });
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -146,9 +189,7 @@ async fn run(event_loop: EventLoop<()>, window: Window) {
                         depth_stencil_attachment: None,
                     });
                     rpass.set_pipeline(&render_pipeline);
-                    rpass.set_bind_group(0, &view_bind_group, &[]);
-                    rpass.set_bind_group(1, &proj_bind_group, &[]);
-                    rpass.set_bind_group(2, &light_bind_group, &[]);
+                    rpass.set_bind_group(0, &bind_group, &[]);
 
                     for i in 0..primitives_content.len() {
                         rpass.set_index_buffer(&primitives_content[i].0, 0, 0);
